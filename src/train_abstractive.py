@@ -11,6 +11,8 @@ import random
 import signal
 import time
 
+import platform
+
 import torch
 from pytorch_transformers import BertTokenizer
 
@@ -85,6 +87,9 @@ class ErrorHandler(object):
     """A class that listens for exceptions in children processes and propagates
     the tracebacks to the parent process."""
 
+    def exit_gracefully(self, signum, frame):
+        self.kill_now = True
+
     def __init__(self, error_queue):
         """ init error handler """
         import signal
@@ -94,7 +99,12 @@ class ErrorHandler(object):
         self.error_thread = threading.Thread(
             target=self.error_listener, daemon=True)
         self.error_thread.start()
-        signal.signal(signal.SIGUSR1, self.signal_handler)
+
+        # Temporary workaround for signals not available on Windows
+        if platform.system() == 'Windows':
+            signal.signal(signal.SIGTERM, self.exit_gracefully)
+        else: 
+            signal.signal(signal.SIGUSR1, self.signal_handler)
 
     def add_child(self, pid):
         """ error handler """
